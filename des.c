@@ -2,11 +2,12 @@
 
 //DES 10-bit encryptor
 //Compile with gcc -Wall des.c
-//Execution: ./a.out followed by 10 bit key in decimal form
+//Execution: ./a.out, followed by -e for encrypt or -d for decrupt, followed by 10 bit key in decimal form
 //           Program will wait for input. Type string and enter
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int p_10(int initial_key);
 int p_8(unsigned char ls11, unsigned char ls12);
@@ -27,15 +28,23 @@ int main(int argc, char* argv[])
 {
     int key10 = 0b1010000010;
     unsigned char byte = 0b01110010;
+    int function = 0;               //0 for encrypt. 1 for decrypt
 
-    if(argc < 2 || argc > 2)
+    if(argc < 3 || argc > 3)
     {
-        printf("Usage: ./a.out (10-bit decimal key)\n");
+        printf("Usage: ./a.out [-e or -d] [10-bit decimal key]\n");
         exit(1);
     }
+    if((strcmp(argv[1], "-e")) != 0 && (strcmp(argv[1], "-d")) != 0)
+    {
+        printf("Usage: ./a.out [-e or -d] [10-bit decimal key]\n");
+        exit(1);
+    }
+    if((strcmp(argv[1], "-d") == 0))
+        function = 1;
 
     //Key generation
-    if((key10 = atoi(argv[1])) == 0);
+    if((key10 = atoi(argv[2])) == 0);
     //{
     //     perror("Key set to 0");
     //     exit(1);
@@ -64,20 +73,24 @@ int main(int argc, char* argv[])
     // int fk_result_2 = fk(SW(((fk(ip(byte), K1) & 0b11110000) >> 4), (fk(ip(byte), K1) & 0b00001111)), K2);
 
     unsigned char cipher_byte;
-    //unsigned char decrypted;
+    unsigned char decrypted_byte;
 
     for(int a = 0; (byte = user_input[a]) != '\0'; a++) //Iterate through user input, encrypt byte, print
     {
         //printf("%4d ", byte);
 
-        cipher_byte = ip_inv(fk(SW(((fk(ip(byte), K1) & 0b11110000) >> 4), (fk(ip(byte), K1) & 0b00001111)), K2));
-        printf("%c", cipher_byte);
-        //printf("%4d ", cipher_byte);
-        // fflush(stdout);
+        if(function == 0)
+        {
+            cipher_byte = ip_inv(fk(SW(((fk(ip(byte), K1) & 0b11110000) >> 4), (fk(ip(byte), K1) & 0b00001111)), K2));
+            printf("%c", cipher_byte);
+            //printf("%4d ", cipher_byte);
+        }
+        else if(function == 1)
+        {
+            decrypted_byte = ip_inv(fk(SW(((fk(ip(byte), K2) & 0b11110000) >> 4), (fk(ip(byte), K2) & 0b00001111)), K1));
+            printf("%c", decrypted_byte);
+        }
 
-        // decrypted = ip_inv(fk(SW(((fk(ip(cipher_byte), K2) & 0b11110000) >> 4), (fk(ip(cipher_byte), K2) & 0b00001111)), K1));
-        // printf("%4d\n", decrypted);
-        // fflush(stdout);
     }
 }
 
