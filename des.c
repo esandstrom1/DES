@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 int p_10(int initial_key);
 int p_8(unsigned char ls11, unsigned char ls12);
@@ -23,67 +25,74 @@ int S0(unsigned char nibble);
 int S1(unsigned char nibble);
 int SW(unsigned char left_4, unsigned char right_4);
 
+#define MAX_SIZE 30000
 
 int main(int argc, char* argv[])
 {
-    int key10 = 0b1010000010;
     unsigned char byte = 0b01110010;
     int function = 0;               //0 for encrypt. 1 for decrypt
+    int fd1;
 
-    if(argc < 3 || argc > 3)
+    if(argc < 4 || argc > 4)
     {
-        printf("Usage: ./a.out [-e or -d] [10-bit decimal key]\n");
+        printf("Usage: ./des [-e or -d] [10-bit decimal key] [source file name]\n");
         exit(1);
     }
     if((strcmp(argv[1], "-e")) != 0 && (strcmp(argv[1], "-d")) != 0)
     {
-        printf("Usage: ./a.out [-e or -d] [10-bit decimal key]\n");
+        printf("Usage: ./des [-e or -d] [10-bit decimal key] [source file name]\n");
         exit(1);
     }
     if((strcmp(argv[1], "-d") == 0))
         function = 1;
+    if((fd1 = open(argv[3], O_RDONLY)) == -1)
+    {
+        perror(argv[3]);
+        exit(1);
+    }
 
     //Key generation
-    if((key10 = atoi(argv[2])) == 0);
-    //{
-    //     perror("Key set to 0");
-    //     exit(1);
-    //}
+    int key10 = atoi(argv[2]);
+
 
     //Get user input
-    size_t chunk_size = 1;
-    char* user_input;
-    if((user_input = malloc(chunk_size)) == NULL)
+    size_t chunk_size = 1000;
+    unsigned char user_input[MAX_SIZE];
+    int num_bytes;
+    int total_length = 0;
+    while((num_bytes = read(fd1, user_input, chunk_size)) > 0)
     {
-        perror("Failed to allocate initial memory\n");
+        total_length += num_bytes;
+    }
+    if(num_bytes == -1)
+    {
+        perror(argv[0]);
         exit(1);
     }
-    if((getline(&user_input, &chunk_size, stdin)) == -1)
+    if(close(fd1) == -1)
     {
-        perror("Failed to read input\n");
+        perror(argv[0]);
         exit(1);
     }
+
+
+
     //printf("Input: %s\n", user_input);
 
     int K1 = p_8(leftshift_1(((p_10(key10)) >> 5) & 0b0000011111), leftshift_1((p_10(key10)) & 0x1F));
     int K2 = p_8(leftshift_2(leftshift_1(((p_10(key10)) >> 5) & 0b0000011111)), leftshift_2(leftshift_1((p_10(key10)) & 0x1F)));
 
-    // int fk_result = fk(ip(byte), K1);
-    // int switched = SW(((fk(ip(byte), K1) & 0b11110000) >> 4), (fk(ip(byte), K1) & 0b00001111));
-    // int fk_result_2 = fk(SW(((fk(ip(byte), K1) & 0b11110000) >> 4), (fk(ip(byte), K1) & 0b00001111)), K2);
-
     unsigned char cipher_byte;
     unsigned char decrypted_byte;
 
-    for(int a = 0; (byte = user_input[a]) != '\0'; a++) //Iterate through user input, encrypt byte, print
+    for(int a = 0; a < total_length; a++) //Iterate through user input, encrypt byte, print
     {
-        //printf("%4d ", byte);
+        byte = user_input[a];
 
         if(function == 0)
         {
             cipher_byte = ip_inv(fk(SW(((fk(ip(byte), K1) & 0b11110000) >> 4), (fk(ip(byte), K1) & 0b00001111)), K2));
             printf("%c", cipher_byte);
-            //printf("%4d ", cipher_byte);
         }
         else if(function == 1)
         {
@@ -132,14 +141,6 @@ int p_8(unsigned char ls11, unsigned char ls12) //6 3 7 4 8 5 10 9
 
 int leftshift_1(unsigned char ls) //Wrap leftmost bit around for 5 bit numbers
 {
-    /*
-    ls = ls & 0b11111; //Sanitize
-    if(ls / 16 >= 1) //MSb is a 1
-        return ((ls << 1) & 0b11110) + 1;  //Shift left by 1, save only 1st 4 bits, add 1 (wrap around bit)
-    else             //MSb is a 0
-        return ((ls << 1) & 0b11110);      //Shift left by 1, save only 1st 4 bits, add 0
-    */
-
     ls = ls & 0b11111; //Sanitize
     int wrap = ((ls & 0b10000) >> 4) & 0b00001;
     return ((ls << 1) & 0b11110) + wrap;
